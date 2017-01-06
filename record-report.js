@@ -92,9 +92,27 @@ let fiveMinuteOfDate = ndx.dimension(d => {
 	return [fiveMinute, date];
 });
 
-let countDevices = fiveMinuteOfDate.group().reduceSum(function(d){
-	return d.count;
-});
+let countDevices = fiveMinuteOfDate.group().reduce(
+	//add
+	function (p, v){
+		p.total += formatTwoDecimalPlace(v.total);
+
+		return p;
+	},
+	//remove
+	function (p, v){
+		p.total -= formatTwoDecimalPlace(v.total);
+
+		return p;
+	},
+	//init
+	function (){
+		return {
+			momentObj: {},
+			total: 0
+		};
+	}
+);
 
 console.log(countDevices.top(10));
 
@@ -120,7 +138,6 @@ heatColorMapping.domain = function(){
 let width = 713;
 let height = 200;
 
-width = 960;
 height = 500;
 
 monthlyReportChart
@@ -130,32 +147,21 @@ monthlyReportChart
 	.yBorderRadius(0)
 	.dimension(fiveMinuteOfDate)
 	.group(countDevices)
-	//                          .xUnits(dc.units.ordinal)
-	//                          .x(d3.scale.linear().domain([0, 1000]))
 	.keyAccessor(function(d){
 		return d.key[1];
 	})
 	.valueAccessor(function(d){
-//                              console.log(d);
 		return d.key[0];
 	})
 	.colorAccessor(function(d){
-		return +d.value;
+		// return +d.value;
+		return +d.value.total;
 	})
 	.title(function(d){
-		// console.log(date);
-		// let actualDate = new Date(date.getTime() + d.key[0]*60*1000);
-		// console.log(actualDate)
-		// var dateTitle = date.getFullYear() + '-' + monthNames[date.getMonth()] + '-' + date.getDate();
-		return " Σ Devices: " + d.value;
+		return " Σ Total: " + d.value;
 	})
-	//                          .colors(d3.scale.linear()
-	//                                    .domain([1, 0])
-	//                                    .range(['white', '#8CC665']))
 	.colors(heatColorMapping)
 	.calculateColorDomain()
-	// .mouseZoomable(true)
-	// .zoomScale([extent])
 ;
 
 monthlyReportChart.colsLabel(function(d){//d = 16782

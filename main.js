@@ -20,12 +20,25 @@ fetch('data.json').then(res =>{
 	 * Format closure to timestamp
 	 */
 	closures.forEach(closure => {
-		let momentObj = moment(closure.closed_timestamp, 'YYYY-MM-DD HH:mm:ss').utcOffset(timezone);
+		let closureTime = closure.closed_timestamp;
+		/**
+		 * @WARN try on modified_timestamp
+		 */
+		if(!closureTime){
+			closureTime =  closure.modified_timestamp;
+		}
+
+		if(!closureTime){
+			console.error('Closure closed_timestamp: null');
+			throw closure;
+		}
+
+		let momentObj = moment(closureTime, 'YYYY-MM-DD HH:mm:ss').utcOffset(timezone);
 		closure.timestamp = momentObj.unix();
 		closure.momentObj = momentObj;
 	});
 	/**
-	 * For debug
+	 * @Debug
 	 */
 	window.closures = closures;
 
@@ -44,9 +57,9 @@ fetch('data.json').then(res =>{
 	/**
 	 * Fullfill each day of year with default value to draw
 	 */
+	// Get out year from ONE CLOSURE
+	let year = closures[0].momentObj.year();
 	//Loop through 12 months
-	let today = moment().utcOffset(timezone);
-	let year = today.year();
 	for(let month = 1; month <= 12; month++){
 		let firstDayOfMonth = moment(`${year}-${month}-1`, 'YYYY-M-D').utcOffset(timezone);
 		let lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
@@ -70,25 +83,53 @@ fetch('data.json').then(res =>{
 	 */
 	let ndx = crossfilter(closures);
 
-	let dayOfYearDim = ndx.dimension(closure => {
-		let dayOfWeek = closure.momentObj.isoWeekday(); //0-6
+	let weekDim = ndx.dimension(closure => {
+		let dayOfWeek = closure.momentObj.isoWeekday(); //1-7
 		let weekOfYear = closure.momentObj.isoWeek(); //1-53
 		return [dayOfWeek, weekOfYear];
 	});
 	
-	let countTotal = dayOfYearDim.group().reduceSum(function(closure){
-		return formatTwoDecimalPlace(closure.total);
+	let countTotal = weekDim.group().reduce(
+		//add
+		function (p, v){
+			p.total += formatTwoDecimalPlace(v.total);
+			p.momentObj = v.momentObj;
+			return p;
+		},
+		//remove
+		function (p, v){
+			p.total -= formatTwoDecimalPlace(v.total);
+			p.momentObj = v.momentObj;
+			return p;
+		},
+		//init
+		function (){
+			return {
+				momentObj: {},
+				total: 0
+			};
+		}
+	);
+	/**
+	 * @DEBUG
+	 */
+	window.countTotal = countTotal;
+
+	// let objWithMaxTotal = countTotal.top(1)[0]; //bcs top return array
+	let objWithMaxTotal = countTotal.all().reduce((x, y) => {
+		return x.value.total > y.value.total ? x : y;
 	});
-	
-	let totalRange = [0, 4000];
+	console.log("max value", objWithMaxTotal.value.total);
+
+	let totalRange = [0, objWithMaxTotal.value.total];
 
 	const heatColorMapping = function(d){
-		// console.log(d);
 		if(d > totalRange[1])
 			return endColor;
+
 		if(d <= 0)
 			return "white";
-		// console.log(d3.scale.linear().domain(countDeviceRange).range([startColor, endColor])(d));
+
 		return d3.scale.linear().domain(totalRange).range([startColor, endColor])(d);
 	};
 
@@ -96,19 +137,16 @@ fetch('data.json').then(res =>{
 		return totalRange;
 	};
 
-	let width = 713;
-	let height = 200;
+	let width = 900;
+	let height = 175;
 
-	width = 900;
-	height = 175;
-
-	let monthlyReportChart = dc.heatMap('#daily-report-heatmap');
-	monthlyReportChart
+	let dailyReportChart = dc.heatMap('#daily-report-heatmap');
+	dailyReportChart
 		.width(width)
 		.height(height)
 		.xBorderRadius(0)
 		.yBorderRadius(0)
-		.dimension(dayOfYearDim)
+		.dimension(weekDim)
 		.group(countTotal)
 		.keyAccessor(function(d){
 			return d.key[1];
@@ -117,10 +155,10 @@ fetch('data.json').then(res =>{
 			return d.key[0];
 		})
 		.colorAccessor(function(d){
-			return +d.value;
+			return d.value.total;
 		})
 		.title(function(d){
-			return " Σ Devices: " + d.value;
+			return "Σ Total: " + d.value.total;
 		})
 		.colors(heatColorMapping)
 		.calculateColorDomain()
@@ -144,6 +182,24 @@ fetch('data.json').then(res =>{
 	// 	return date.getDate();
 	// });
 
+	/**
+	 * Handle click on cell ~ single day
+	 */
+	dailyReportChart
+		.boxOnClick(function (countTotalObj) {
+			console.log('I here you');
+			console.log(countTotalObj);
+
+			let closureMomentObj = countTotalObj.value.momentObj;
+			let closureDate = closureMomentObj.format('YYYY-MM-DD');
+			let currentURL = window.location.href;
+			if(!currentURL.endsWith("/")){
+				currentURL += "/";
+			}
+			let dailyReportDetail = currentURL + closureDate; //bcs currentURL has end slash "/"
+			window.location.href = dailyReportDetail;
+		});
+
 	dc.renderAll();
 });
 
@@ -155,5 +211,6 @@ fetch('data.json').then(res =>{
  * Make sure number with 2 decimal place
  */
 function formatTwoDecimalPlace(val){
-	return Number(Number(val).toFixed(2));
+	// return Number(Number(val).toFixed(2));
+	return Number(val);
 }
