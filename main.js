@@ -88,7 +88,12 @@ fetch('data.json').then(res =>{
 		let weekOfYear = closure.momentObj.isoWeek(); //1-53
 		return [dayOfWeek, weekOfYear];
 	});
-	
+
+	/**
+	 * @DEBUG
+	 */
+	window.weekDim = weekDim;
+		
 	let countTotal = weekDim.group().reduce(
 		//add
 		function (p, v){
@@ -119,9 +124,9 @@ fetch('data.json').then(res =>{
 	let objWithMaxTotal = countTotal.all().reduce((x, y) => {
 		return x.value.total > y.value.total ? x : y;
 	});
-	console.log("max value", objWithMaxTotal.value.total);
+	// console.log("max value", objWithMaxTotal.value.total);
 
-	let totalRange = [0, objWithMaxTotal.value.total];
+	// let totalRange = [0, objWithMaxTotal.value.total];
 
 	// const heatColorMapping = function(d){
 	// 	if(d > totalRange[1])
@@ -140,7 +145,14 @@ fetch('data.json').then(res =>{
 	let width = 900;
 	let height = 175;
 
+	width = (45 * 53 + 80);
+	height = (45 * 7 + 40)
+
 	let dailyReportChart = dc.heatMap('#daily-report-heatmap');
+	/**
+	 * @DEBUG
+	 */
+	window.dailyReportChart = dailyReportChart;
 	dailyReportChart
 		.width(width)
 		.height(height)
@@ -186,20 +198,26 @@ fetch('data.json').then(res =>{
 	/**
 	 * Handle click on cell ~ single day
 	 */
-	dailyReportChart
-		.boxOnClick(function (countTotalObj) {
-			console.log('I here you');
-			console.log(countTotalObj);
+	// dailyReportChart
+	// 	.boxOnClick(function (countTotalObj) {
+	// 		console.log('I here you');
+	// 		console.log(countTotalObj);
 
-			let closureMomentObj = countTotalObj.value.momentObj;
-			let closureDate = closureMomentObj.format('YYYY-MM-DD');
-			let currentURL = window.location.href;
-			if(!currentURL.endsWith("/")){
-				currentURL += "/";
-			}
-			let dailyReportDetail = currentURL + closureDate; //bcs currentURL has end slash "/"
-			window.location.href = dailyReportDetail;
-		});
+	// 		let closureMomentObj = countTotalObj.value.momentObj;
+	// 		let closureDate = closureMomentObj.format('YYYY-MM-DD');
+	// 		let currentURL = window.location.href;
+	// 		if(!currentURL.endsWith("/")){
+	// 			currentURL += "/";
+	// 		}
+	// 		let dailyReportDetail = currentURL + closureDate; //bcs currentURL has end slash "/"
+	// 		// window.location.href = dailyReportDetail;
+			
+	// 		// var filter = countTotalObj.key;
+	// 		// dc.events.trigger(function () {
+	// 		// 	dailyReportChart.filter(filter);
+	// 		// 	dailyReportChart.redrawGroup();
+	// 		// });
+	// 	});
 
 	dc.renderAll();
 });
