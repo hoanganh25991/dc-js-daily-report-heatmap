@@ -47,7 +47,7 @@ fetch('data.json').then(res =>{
 		timestamp: 0,
 		momentObj: {},
 		total: 0,
-		num_of_order: 0,
+		num_of_orders: 0,
 		pax: 0,
 		net_total: 0,
 		gross_total: 0,
@@ -83,7 +83,7 @@ fetch('data.json').then(res =>{
 	 */
 	ndx = crossfilter(closures);
 
-	let weekDim = ndx.dimension(closure => {
+	weekDim = ndx.dimension(closure => {
 		let dayOfWeek = closure.momentObj.isoWeekday(); //1-7
 		let weekOfYear = closure.momentObj.isoWeek(); //1-53
 		return [dayOfWeek, weekOfYear];
@@ -92,82 +92,16 @@ fetch('data.json').then(res =>{
 	/**
 	 * @DEBUG
 	 */
-	window.weekDim = weekDim;
-
-	// let countTotal = weekDim.group().reduce(
-	// 	//add
-	// 	function (p, v){
-	// 		p.total += formatTwoDecimalPlace(v.total);
-	// 		p.momentObj = v.momentObj;
-	// 		return p;
-	// 	},
-	// 	//remove
-	// 	function (p, v){
-	// 		p.total -= formatTwoDecimalPlace(v.total);
-	// 		p.momentObj = v.momentObj;
-	// 		return p;
-	// 	},
-	// 	//init
-	// 	function (){
-	// 		return {
-	// 			momentObj: {},
-	// 			total: 0
-	// 		};
-	// 	}
-	// );
-	 
 	
-	
-	countTotal = function(weekDim){
-			return weekDim.group().reduceSum(function(closure){
-				return Number(closure.total);
-			});
-	}(weekDim);
-
-	countPax = weekDim.group().reduceSum(function(closure){
-		// return Number(closure.pax);
-		return Math.floor(Math.random() * (10 - 3)) + 3;
-	});
-
-	// countNumOrder = function(weekDim){
-	// 	return weekDim.group().reduceSum(function(closure){
-	// 		return Number(closure.num_of_orders);
-	// 	});
-	// }(weekDim);
-
-	// countNettTotal = weekDim.group().reduceSum(function(closure){
-	// 	return Number(closure.nett_total);
+	// countPax = weekDim.group().reduceSum(function(closure){
+	// 	return Number(closure.pax);
 	// });
 
-	countGrossTotal = weekDim.group().reduceSum(function(closure){
-		return Number(closure.gross_total);
+	countNumOrder = weekDim.group().reduceSum(function(closure){
+		// return formatTwoDecimalPlace(closure.num_of_orders);
+		return Number(closure.num_of_orders);
+		// return 2;
 	});
-
-	/**
-	 * @DEBUG
-	 */
-
-	// let objWithMaxTotal = countTotal.top(1)[0]; //bcs top return array
-	// let objWithMaxTotal = countTotal.all().reduce((x, y) => {
-	// 	return x.value.total > y.value.total ? x : y;
-	// });
-	// console.log("max value", objWithMaxTotal.value.total);
-
-	// let totalRange = [0, objWithMaxTotal.value.total];
-
-	// const heatColorMapping = function(d){
-	// 	if(d > totalRange[1])
-	// 		return endColor;
-
-	// 	if(d <= 0)
-	// 		return "white";
-
-	// 	return d3.scale.linear().domain(totalRange).range([startColor, endColor])(d);
-	// };
-
-	// heatColorMapping.domain = function(){
-	// 	return totalRange;
-	// };
 
 	let width = 900;
 	let height = 175;
@@ -186,10 +120,7 @@ fetch('data.json').then(res =>{
 		.xBorderRadius(0)
 		.yBorderRadius(0)
 		.dimension(weekDim)
-		// .group(countTotal)
-		// .group(countNumOrder)
-		// .group(countNettTotal)
-		.group(countTotal)
+		.group(countNumOrder)
 		.keyAccessor(function(d){
 			return d.key[1];
 		})
@@ -197,14 +128,11 @@ fetch('data.json').then(res =>{
 			return d.key[0];
 		})
 		.colorAccessor(function(d){
-			// return d.value.total;
 			return d.value;
 		})
 		.title(function(d){
-			// return "Σ Total: " + d.value.total;
 			return "Σ Total: " + d.value;
 		})
-		// .colors(heatColorMapping)
 		.colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
 		.calculateColorDomain()
 	;
@@ -269,6 +197,6 @@ fetch('data.json').then(res =>{
  * Make sure number with 2 decimal place
  */
 function formatTwoDecimalPlace(val){
-	// return Number(Number(val).toFixed(2));
-	return Number(val);
+	return Number(Number(val).toFixed(2));
+	// return Number(val);
 }
