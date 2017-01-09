@@ -123,19 +123,19 @@ fetch('data.json').then(res =>{
 
 	let totalRange = [0, objWithMaxTotal.value.total];
 
-	const heatColorMapping = function(d){
-		if(d > totalRange[1])
-			return endColor;
+	// const heatColorMapping = function(d){
+	// 	if(d > totalRange[1])
+	// 		return endColor;
 
-		if(d <= 0)
-			return "white";
+	// 	if(d <= 0)
+	// 		return "white";
 
-		return d3.scale.linear().domain(totalRange).range([startColor, endColor])(d);
-	};
+	// 	return d3.scale.linear().domain(totalRange).range([startColor, endColor])(d);
+	// };
 
-	heatColorMapping.domain = function(){
-		return totalRange;
-	};
+	// heatColorMapping.domain = function(){
+	// 	return totalRange;
+	// };
 
 	let width = 900;
 	let height = 175;
@@ -160,7 +160,8 @@ fetch('data.json').then(res =>{
 		.title(function(d){
 			return "Σ Total: " + d.value.total;
 		})
-		.colors(heatColorMapping)
+		// .colors(heatColorMapping)
+		.colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
 		.calculateColorDomain()
 	;
 
