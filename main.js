@@ -93,9 +93,9 @@ fetch('data.json').then(res =>{
 	 * @DEBUG
 	 */
 	
-	// countPax = weekDim.group().reduceSum(function(closure){
-	// 	return Number(closure.pax);
-	// });
+	countPax = weekDim.group().reduceSum(function(closure){
+		return Number(closure.pax);
+	});
 
 	countNumOrder = weekDim.group().reduceSum(function(closure){
 		// return formatTwoDecimalPlace(closure.num_of_orders);
@@ -185,6 +185,10 @@ fetch('data.json').then(res =>{
 	 * @DEBUG
 	 */
 	// window.countPax = countPax;
+
+	// dailyReportChart.on('preRedraw', function() {
+	//     dailyReportChart.calculateColorDomain();
+	// })
 
 	dc.renderAll();
 });
