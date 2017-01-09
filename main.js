@@ -1,31 +1,36 @@
-/**
- * Timezone of closure, currently in SING
- */
-const timezone = 8 * 60;
+function drawDailyReportGraph(closures){
+	/**
+	 * Timezone of closure, currently in SING
+	 */
+	const timezone = 8 * 60;
 
-/**
- * Config heatmap color
- */
-const startColor = '#03A9F4';
-const endColor = '#01579B';
+	/**
+	 * Config heatmap color
+	 */
+	const emptyColor = 'white';
+	const top100Color = '#004b00';
+	const top50Color = 'green';
+	const bottom10Color = 'red';
+	const range10Color = 'yellow';
+	const range40Color = 'orange';
+	// const startColor = '#03A9F4';
+	// const endColor = '#01579B';
 
-fetch('data.json').then(res =>{
-// 	console.log(res.json());
-	return Promise.resolve(res.json());
-}).then(closures =>{
+
 	var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 	/**
 	 * Format closure to timestamp
+	 * Closures come from global in views/daily_reports/index.php
 	 */
-	closures.forEach(closure => {
+	closures.forEach(closure =>{
 		let closureTime = closure.closed_timestamp;
 		/**
 		 * @WARN try on modified_timestamp
 		 */
 		if(!closureTime){
-			closureTime =  closure.modified_timestamp;
+			closureTime = closure.modified_timestamp;
 		}
 
 		if(!closureTime){
@@ -37,10 +42,6 @@ fetch('data.json').then(res =>{
 		closure.timestamp = momentObj.unix();
 		closure.momentObj = momentObj;
 	});
-	/**
-	 * @Debug
-	 */
-	window.closures = closures;
 
 	let clousreSample = {
 		closed_timestamp: '',
@@ -49,17 +50,17 @@ fetch('data.json').then(res =>{
 		total: 0,
 		num_of_orders: 0,
 		pax: 0,
-		net_total: 0,
+		nett_total: 0,
 		gross_total: 0,
-		discount: 0
+		total_discount: 0
 	};
 
 	/**
 	 * Fullfill each day of year with default value to draw
 	 */
-	// Get out year from ONE CLOSURE
-	let year = closures[0].momentObj.year();
-	//Loop through 12 months
+// Get out year from ONE CLOSURE
+	const year = closures[0].momentObj.year();
+//Loop through 12 months
 	for(let month = 1; month <= 12; month++){
 		let firstDayOfMonth = moment(`${year}-${month}-1`, 'YYYY-M-D').utcOffset(timezone);
 		let lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
@@ -81,46 +82,91 @@ fetch('data.json').then(res =>{
 	/**
 	 * Create dimenstion on date
 	 */
-	ndx = crossfilter(closures);
+	let ndx = crossfilter(closures);
 
-	weekDim = ndx.dimension(closure => {
+	let weekDim = ndx.dimension(closure =>{
 		let dayOfWeek = closure.momentObj.isoWeekday(); //1-7
 		let weekOfYear = closure.momentObj.isoWeek(); //1-53
 		return [dayOfWeek, weekOfYear];
 	});
 
+	let buildCountOn = function(dimension){
+		return function(closureAttr){
+			return dimension.group().reduce(
+				//add
+				function(p, v){
+					p.sum += Number(v[closureAttr]);
+					p.momentObj = v.momentObj;
+					return p;
+				},
+				//remove
+				function(p, v){
+					p.sum -= Number(v[closureAttr]);
+					p.momentObj = v.momentObj;
+					return p;
+				},
+				//init
+				function(){
+					return {
+						momentObj: {},
+						sum: 0
+					};
+				}
+			);
+		};
+	}(weekDim);
+
 	/**
-	 * @DEBUG
+	 * Build the default one
 	 */
-	
-	countPax = weekDim.group().reduceSum(function(closure){
-		return Number(closure.pax);
-	});
-
-	countNumOrder = weekDim.group().reduceSum(function(closure){
-		// return formatTwoDecimalPlace(closure.num_of_orders);
-		return Number(closure.num_of_orders);
-		// return 2;
-	});
-
-	let width = 900;
-	let height = 175;
-
-	width = (45 * 53 + 80);
-	height = (45 * 7 + 40)
+	let countTotal = buildCountOn('total');
 
 	let dailyReportChart = dc.heatMap('#daily-report-heatmap');
-	/**
-	 * @DEBUG
-	 */
-	window.dailyReportChart = dailyReportChart;
+
+	const dayInWeek = {
+		1: 'M',
+		3: 'W',
+		5: 'F'
+	};
+
+	let computeHeatMapRange = function(){
+		let valArr = dailyReportChart.group().all().map(c => {return c.value.sum});
+
+		let maxVal = valArr.reduce((x, y) => {
+			return x > y ? x : y;
+		});
+		console.log('MAX VAL: ', maxVal);
+		let emptyVal = 0;
+		let bottom10Val = maxVal * 0.1 - 1;
+		let range10Val = maxVal * 0.1;
+		let range40Val = maxVal * 0.4;
+		let top50Val = maxVal * 0.5;
+		let top100Val = maxVal;
+
+		dailyReportChart.range = [emptyVal, bottom10Val, range10Val, range40Val, top50Val, top100Val];
+	}
+
+	const heatColorMapping = function(d){
+
+		return d3.scale.linear()
+		         .domain(dailyReportChart.range)
+		         .range([emptyColor, bottom10Color, range10Color, range40Color, top50Color, top100Color])(d);
+	};
+
+	heatColorMapping.domain = function(){
+		return [0,1];
+	};
+
+	//Let chart auto decide on how large of cell
 	dailyReportChart
-		.width(width)
-		.height(height)
 		.xBorderRadius(0)
 		.yBorderRadius(0)
 		.dimension(weekDim)
-		.group(countNumOrder)
+		.group(countTotal);
+
+	computeHeatMapRange();
+
+	dailyReportChart
 		.keyAccessor(function(d){
 			return d.key[1];
 		})
@@ -128,79 +174,95 @@ fetch('data.json').then(res =>{
 			return d.key[0];
 		})
 		.colorAccessor(function(d){
-			return d.value;
+			return d.value.sum;
 		})
 		.title(function(d){
-			return "Σ Total: " + d.value;
+			return "Σ Sum: " + d.value.sum;
 		})
-		.colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
+		.colors(heatColorMapping)
 		.calculateColorDomain()
 	;
-
-	// monthlyReportChart.colsLabel(function(d){//d = 16782
-	// 	var timestamp = d * (86400); // d * (24 * 60 * 60);
-	// 	var date = new Date(timestamp * 1000);
-	// 	return monthNames[date.getMonth()] + '-' + date.getDate();
-	// });
-
-	// monthlyReportChart.rowsLabel(function(d){//d = 16782
-	// 	let colLabel = '';
-	// 	if(d % 12 == 0)
-	// 		colLabel = d/12 + 'h';
-	// 	return colLabel;
-	// });
-
-	// monthlyReportChart.colsLabel(function(d){//d = 16782
-	// 	let date = new Date(d * 86400 * 1000);
-	// 	return date.getDate();
-	// });
 
 	/**
 	 * Handle click on cell ~ single day
 	 */
-	// dailyReportChart
-	// 	.boxOnClick(function (countTotalObj) {
-	// 		console.log('I here you');
-	// 		console.log(countTotalObj);
+	dailyReportChart
+		.boxOnClick(function(countObj){
+			console.log('A Daily report: clicked');
+			console.log(countObj);
 
-	// 		let closureMomentObj = countTotalObj.value.momentObj;
-	// 		let closureDate = closureMomentObj.format('YYYY-MM-DD');
-	// 		let currentURL = window.location.href;
-	// 		if(!currentURL.endsWith("/")){
-	// 			currentURL += "/";
-	// 		}
-	// 		let dailyReportDetail = currentURL + closureDate; //bcs currentURL has end slash "/"
-	// 		// window.location.href = dailyReportDetail;
-			
-	// 		// var filter = countTotalObj.key;
-	// 		// dc.events.trigger(function () {
-	// 		// 	dailyReportChart.filter(filter);
-	// 		// 	dailyReportChart.redrawGroup();
-	// 		// });
-	// 	});
-	 	
-	
+			let closureMomentObj = countObj.value.momentObj;
+			let closureDate = closureMomentObj.format('YYYY-MM-DD');
+			let currentURL = window.location.href;
+			if(!currentURL.endsWith("/")){
+				currentURL += "/";
+			}
+			let dailyReportDetail = currentURL + closureDate; //bcs currentURL has end slash "/"
+			window.location.href = dailyReportDetail;
+		});
+
+	dailyReportChart.rowsLabel(function(d){//1-7
+		return dayInWeek[d];
+	});
+
+	const firstDayOfYear = moment(year, 'YYYY');
+
+	let showedMonth = "";
+	dailyReportChart.colsLabel(function(d){//1-53
+		let currentDay = firstDayOfYear.clone().add((d - 1) * 7 + 1, 'd');
+		let month = currentDay.format('MMM');
+		if(month != showedMonth){
+			showedMonth = month;
+			return month;
+		}
+
+		return "";
+	});
+
+	let reDrawChart = function(chart){
+		return function(closureAttribute){
+			let countOnAttribute = buildCountOn(closureAttribute);
+			// redraw chart
+			chart.group(countOnAttribute);
+			computeHeatMapRange();
+			chart.calculateColorDomain();
+			//render only on chart to save CPU
+			chart.render();
+		}
+	}(dailyReportChart);
 
 	/**
-	 * @DEBUG
+	 * Bind click closure attr event
 	 */
-	// window.countPax = countPax;
+	document.querySelectorAll('#closure-attr-btn-group button').forEach(btn =>{
+		console.log(btn);
+		btn.addEventListener('click', function(){
+			let closureAttr = btn.getAttribute('closure-attr');
+			console.log('redraw on attr: ' + closureAttr);
+			reDrawChart(closureAttr);
+		});
+	});
 
-	// dailyReportChart.on('preRedraw', function() {
-	//     dailyReportChart.calculateColorDomain();
-	// })
+	/**
+	 * Self compute with height of heatmap
+	 */
+	window.addEventListener('resize', function(){
+		let heatMapDiv = document.querySelector('#daily-report-heatmap');
+		dailyReportChart.width(heatMapDiv.clientWidth);
+		dailyReportChart.render();
+	});
+
+
+// monthlyReportChart.colsLabel(function(d){//d = 16782
+// 	let date = new Date(d * 86400 * 1000);
+// 	return date.getDate();
+// });
 
 	dc.renderAll();
+};
+fetch('data.json').then(res =>{
+// 	console.log(res.json());
+	return Promise.resolve(res.json());
+}).then(closures => {
+	drawDailyReportGraph(closures);
 });
-
-/**
- * Support function
- */
-
-/**
- * Make sure number with 2 decimal place
- */
-function formatTwoDecimalPlace(val){
-	return Number(Number(val).toFixed(2));
-	// return Number(val);
-}
